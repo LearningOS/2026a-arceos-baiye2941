@@ -99,6 +99,10 @@ impl RootDirectory {
             f(self.mounts[idx].fs.clone(), &path[max_len..]) // matched at `idx`
         }
     }
+
+    fn resolve(&self, path: &str) -> AxResult<(Arc<dyn VfsOps>, String)> {
+        self.lookup_mounted_fs(path, |fs, rest| Ok((fs, String::from(rest))))
+    }
 }
 
 impl VfsNodeOps for RootDirectory {
@@ -133,13 +137,16 @@ impl VfsNodeOps for RootDirectory {
     }
 
     fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
-        self.lookup_mounted_fs(src_path, |fs, rest_path| {
-            if rest_path.is_empty() {
-                ax_err!(PermissionDenied) // cannot rename mount points
-            } else {
-                fs.root_dir().rename(rest_path, dst_path)
-            }
-        })
+        let (src_fs, src_rest) = self.resolve(src_path)?;
+        let (dst_fs, dst_rest) = self.resolve(dst_path)?;
+        
+        if !Arc::ptr_eq(&src_fs, &dst_fs) {
+            return ax_err!(Unsupported);
+        }
+        if src_rest.is_empty() || dst_rest.is_empty() {
+            return ax_err!(PermissionDenied);
+        }
+        src_fs.root_dir().rename(&src_rest, &dst_rest)
     }
 }
 

@@ -165,6 +165,35 @@ impl VfsNodeOps for DirNode {
         }
     }
 
+    fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
+        let (src_name, src_rest) = split_path(src_path);
+        let (dst_name, dst_rest) = split_path(dst_path);
+        
+        // 只能同目录改名，不能跨目录移动
+        if src_rest.is_some() || dst_rest.is_some() {
+            return Err(VfsError::Unsupported);
+        }
+
+        if src_name.is_empty() || dst_name.is_empty() {
+            return Err(VfsError::InvalidInput);
+        }
+        
+        if src_name == dst_name {
+            return Ok(());
+        }
+        
+        let mut children = self.children.write();
+        if !children.contains_key(src_name) {
+            return Err(VfsError::NotFound);
+        }
+        if children.contains_key(dst_name) {
+            return Err(VfsError::AlreadyExists);
+        }
+        let node = children.remove(src_name).unwrap();
+        children.insert(dst_name.into(), node);
+        Ok(())
+    }
+
     axfs_vfs::impl_vfs_dir_default! {}
 }
 
