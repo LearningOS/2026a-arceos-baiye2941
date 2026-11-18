@@ -140,9 +140,11 @@ impl VfsNodeOps for RootDirectory {
         let (src_fs, src_rest) = self.resolve(src_path)?;
         let (dst_fs, dst_rest) = self.resolve(dst_path)?;
         
+        // 禁止跨文件系统
         if !Arc::ptr_eq(&src_fs, &dst_fs) {
             return ax_err!(Unsupported);
         }
+        // 禁止 rename 挂载点本身
         if src_rest.is_empty() || dst_rest.is_empty() {
             return ax_err!(PermissionDenied);
         }
