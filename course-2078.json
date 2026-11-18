@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-baiye2941",
-  "commit": "263595c0ac6f3483021a8b3f121e3aba996c585e",
-  "score": 200,
+  "commit": "9c9ad2f14f4ec758652627023d022becd36098b7",
+  "score": 400,
   "totalScore": 600,
   "exercises": [
     {
@@ -23,16 +23,16 @@
     {
       "name": "alt_alloc",
       "max": 100,
-      "score": 0,
-      "status": "fail",
+      "score": 100,
+      "status": "pass",
       "exitCode": 0
     },
     {
       "name": "support_hashmap",
       "max": 100,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 2
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "sys_map",
@@ -50,9 +50,9 @@
     }
   ],
   "student": "baiye2941",
-  "runId": "42976227897",
+  "runId": "44311821515",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
