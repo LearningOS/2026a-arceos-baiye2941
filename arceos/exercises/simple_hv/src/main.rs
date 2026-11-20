@@ -24,7 +24,8 @@ use csrs::{RiscvCsrTrait, CSR};
 use vcpu::_run_guest;
 use sbi::SbiMessage;
 use loader::load_vm_image;
-use axhal::mem::PhysAddr;
+use axhal::mem::{PhysAddr, VirtAddr, PAGE_SIZE_4K};
+use axhal::paging::MappingFlags;
 use crate::regs::GprIndex::{A0, A1};
 
 const VM_ENTRY: usize = 0x8020_0000;
@@ -40,6 +41,20 @@ fn main() {
     if let Err(e) = load_vm_image("/sbin/skernel2", &mut uspace) {
         panic!("Cannot load app! {:?}", e);
     }
+
+    // Provide a boot page at guest-physical address 0. The guest reads a
+    // magic value at offset 0x40 of this page (`ld a0, 64(zero)`).
+    uspace
+        .map_alloc(
+            VirtAddr::from(0),
+            PAGE_SIZE_4K,
+            MappingFlags::READ | MappingFlags::WRITE | MappingFlags::USER,
+            true,
+        )
+        .unwrap();
+    uspace
+        .write(VirtAddr::from(0x40), &0x6688u64.to_ne_bytes())
+        .unwrap();
 
     // Setup context to prepare to enter guest mode.
     let mut ctx = VmCpuRegisters::default();
@@ -102,10 +117,17 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             }
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            if stval::read() == 0xf140_25f3 {
+                // `csrr a1, mhartid` is not accessible from VS-mode.
+                // Emulate it with a virtualized hart ID.
+                ctx.guest_regs.gprs.set_reg(A1, 0x1234);
+                ctx.guest_regs.sepc += 4;
+            } else {
+                panic!("Bad instruction: {:#x} sepc: {:#x}",
+                    stval::read(),
+                    ctx.guest_regs.sepc
+                );
+            }
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
             panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
@@ -143,4 +165,7 @@ fn prepare_guest_context(ctx: &mut VmCpuRegisters) {
     ctx.guest_regs.sstatus = sstatus.bits();
     // Return to entry to start vm.
     ctx.guest_regs.sepc = VM_ENTRY;
+
+    // Disable the host timer interrupt so that it cannot vmexit the guest.
+    CSR.sie.read_and_clear_bits(csrs::traps::interrupt::SUPERVISOR_TIMER);
 }
