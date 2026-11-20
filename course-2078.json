@@ -2,7 +2,7 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-baiye2941",
-  "commit": "2e3fde0584df9537a80156f3ba0fd36443ba6008",
+  "commit": "837fd2b7e8300fe6bb41037581efc195be14fcfd",
   "score": 600,
   "totalScore": 600,
   "exercises": [
@@ -50,9 +50,9 @@
     }
   ],
   "student": "baiye2941",
-  "runId": "44701746652",
+  "runId": "44702699965",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
