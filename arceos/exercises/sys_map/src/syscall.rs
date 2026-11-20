@@ -7,6 +7,8 @@ use axerrno::LinuxError;
 use axtask::current;
 use axtask::TaskExtRef;
 use axhal::paging::MappingFlags;
+use axhal::mem::{MemoryAddr, VirtAddr, PAGE_SIZE_4K};
+use memory_addr::VirtAddrRange;
 use arceos_posix_api as api;
 
 const SYS_IOCTL: usize = 29;
@@ -138,9 +140,74 @@ fn sys_mmap(
     prot: i32,
     flags: i32,
     fd: i32,
-    _offset: isize,
+    offset: isize,
 ) -> isize {
-    unimplemented!("no sys_mmap!");
+    let prot = MmapProt::from_bits_truncate(prot);
+    let flags = MmapFlags::from_bits_truncate(flags);
+    if length == 0 || offset < 0 {
+        return -LinuxError::EINVAL.code() as isize;
+    }
+
+    // The mapped region covers file bytes [offset, offset + length).
+    // Its start may be offset by `offset % PAGE_SIZE` inside the first page.
+    let page_offset = (offset as usize) % PAGE_SIZE_4K;
+    let map_size = (page_offset + length).next_multiple_of(PAGE_SIZE_4K);
+
+    let aspace = current().task_ext().aspace.clone();
+    let mut aspace = aspace.lock();
+
+    let vaddr = if flags.contains(MmapFlags::MAP_FIXED) && !addr.is_null() {
+        if (addr as usize) % PAGE_SIZE_4K != 0 {
+            return -LinuxError::EINVAL.code() as isize;
+        }
+        VirtAddr::from_usize(addr as usize)
+    } else {
+        let hint = if addr.is_null() {
+            aspace.base()
+        } else {
+            VirtAddr::from_usize(addr as usize).align_up_4k()
+        };
+        let limit = VirtAddrRange::from_start_size(aspace.base(), aspace.size());
+        match aspace.find_free_area(hint, map_size, limit) {
+            Some(vaddr) => vaddr,
+            None => return -LinuxError::ENOMEM.code() as isize,
+        }
+    };
+
+    if aspace
+        .map_alloc(vaddr, map_size, MappingFlags::from(prot), true)
+        .is_err()
+    {
+        return -LinuxError::ENOMEM.code() as isize;
+    }
+
+    let ret_addr = vaddr.as_usize() + page_offset;
+
+    if !flags.contains(MmapFlags::MAP_ANONYMOUS) {
+        if fd < 0 {
+            return -LinuxError::EBADF.code() as isize;
+        }
+        // Position the file at `offset`, then copy its content into the
+        // freshly mapped (zero-filled) pages.
+        let pos = api::sys_lseek(fd, offset as _, 0);
+        if pos < 0 {
+            return pos as isize;
+        }
+        let mut buf = alloc::vec![0u8; length];
+        let n = api::sys_read(fd, buf.as_mut_ptr() as *mut c_void, length);
+        if n < 0 {
+            return n as isize;
+        }
+        buf.truncate(n as usize);
+        if aspace
+            .write(VirtAddr::from_usize(ret_addr), &buf)
+            .is_err()
+        {
+            return -LinuxError::EFAULT.code() as isize;
+        }
+    }
+
+    ret_addr as isize
 }
 
 fn sys_openat(dfd: c_int, fname: *const c_char, flags: c_int, mode: api::ctypes::mode_t) -> isize {
