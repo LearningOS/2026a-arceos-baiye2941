@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-baiye2941",
-  "commit": "9c9ad2f14f4ec758652627023d022becd36098b7",
-  "score": 400,
+  "commit": "2e3fde0584df9537a80156f3ba0fd36443ba6008",
+  "score": 600,
   "totalScore": 600,
   "exercises": [
     {
@@ -37,22 +37,22 @@
     {
       "name": "sys_map",
       "max": 100,
-      "score": 0,
-      "status": "fail",
+      "score": 100,
+      "status": "pass",
       "exitCode": 0
     },
     {
       "name": "simple_hv",
       "max": 100,
-      "score": 0,
-      "status": "fail",
+      "score": 100,
+      "status": "pass",
       "exitCode": 0
     }
   ],
   "student": "baiye2941",
-  "runId": "44311821515",
+  "runId": "44701746652",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
